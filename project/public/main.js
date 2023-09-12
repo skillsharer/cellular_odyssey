@@ -9,9 +9,8 @@ const isMob = /Android|webOS|iPhone|iPad|IEMobile|Opera Mini/i.test(navigator.us
 function preload() {
     // seed random and perlin noise functions with fxrand() - needed to make your script deterministic
     // you can now use random() and noise() in the script 
-    let seedKey = $fx.getParam("seedInput");
-    console.log(seedKey);
-    globalSeed = int($fx.randminter() * seedKey);
+    globalSeed = Math.round(fxrand() * 2e9);
+    console.log(globalSeed);
 }
 
 // FXHASH PARAMS
@@ -151,9 +150,7 @@ function countNeighbors(grid, x, y) {
   return sum;
 }
 
-function initGrid() {
-  randomSeed(globalSeed); // Use the globalSeed to seed the random number generator
-  
+function initGrid() {  
   grid = make2DArray(gridCols, gridRows);
   nextGrid = make2DArray(gridCols, gridRows);
   transitionGrid = make2DArray(gridCols, gridRows);
