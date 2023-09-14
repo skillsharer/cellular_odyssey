@@ -53,7 +53,7 @@ $fx.params([
     default: 0,
     options: {
       min: 1,
-      max: 60,
+      max: 10,
       step: 1,
     },
   },
@@ -78,6 +78,17 @@ $fx.params([
       max: 0.16,
       step: 0.01,
     },
+  },
+  {
+    id: "frame_strokeweight",
+    name: "Frame Width",
+    type: "number",
+    default: 5,
+    options: {
+      min: 1,
+      max: 10,
+      step: 1,
+    },
   }
 ])
 
@@ -87,7 +98,7 @@ let cellSize = 10;
 let gridRows = 50;
 let gridCols = 50;
 let lerpAmount = 0;
-let grid, nextGrid, transitionGrid, transitionState;
+let grid, nextGrid;
 let unchangedCells = new Set(); // New data structure to keep track of unchanged cells
 let gradientColor1;
 let gradientColor2;
@@ -95,11 +106,12 @@ let bgColor;
 let cellColor;
 let transitionSpeed; // 0.1 - 1
 let aliveCellPercentage;
-let initialGrid, initialNextGrid, initialTransitionGrid, initialTransitionState;
+let initialGrid, initialNextGrid;
 let minus = false;
 let gradientSpeed;
 let frameWidth = 5;
 let frameDelay;
+let frame_strokeweight;
 
 function copyGrid(source) {
   let copy = make2DArray(gridCols, gridRows);
@@ -122,8 +134,6 @@ function make2DArray(cols, rows) {
 function restartGame() {
   grid = copyGrid(initialGrid);
   nextGrid = copyGrid(initialNextGrid);
-  transitionGrid = copyGrid(initialTransitionGrid);
-  transitionState = copyGrid(initialTransitionState);
   unchangedCells = new Set();
 }
 
@@ -138,31 +148,132 @@ function keyTyped() {
 }
 
 function countNeighbors(grid, x, y) {
-  let sum = 0;
-  for (let i = -1; i < 2; i++) {
-    for (let j = -1; j < 2; j++) {
+  let count = 0;
+  for (let i = -1; i <= 1; i++) {
+    for (let j = -1; j <= 1; j++) {
+      if (i === 0 && j === 0) continue;
       let col = (x + i + gridCols) % gridCols;
       let row = (y + j + gridRows) % gridRows;
-      sum += grid[col][row];
+      count += grid[col][row];
     }
   }
-  sum -= grid[x][y];
-  return sum;
+  return count;
 }
+
+function initGridDebugMode(patternFlag) {
+  grid = make2DArray(gridCols, gridRows);
+  nextGrid = make2DArray(gridCols, gridRows);
+  unchangedCells = new Set();  // Resetting the set of unchanged cells
+
+  const midX = Math.floor(gridCols / 2);
+  const midY = Math.floor(gridRows / 2);
+  let pattern = [];
+
+  switch (patternFlag) {
+    case 'glider':
+      pattern = [
+        [0, 0], [1, 0], [2, 0],
+        [0, 1], [1, 2]
+      ];
+      break;
+    case 'lwss':
+      pattern = [
+        [1, -1],  // First row
+        [-1, 0], [2, 0],  // Second row
+        [-2, 1],  // Third row
+        [-2, 2], [-1, 2], [0, 2], [1, 2]  // Fourth row
+      ];            
+      break;
+      case 'pulsar':
+        pattern = [
+          // First quadrant
+          [-2,-1],[-3,-1],[-4,-1],
+          [-6,-2],[-6,-3],[-6,-4],
+          [-2,-6],[-3,-6],[-4,-6],
+          [-1,-2],[-1,-3],[-1,-4],
+        
+          // Second quadrant (mirror first quadrant across the Y-axis)
+          [2,-1],[3,-1],[4,-1],
+          [6,-2],[6,-3],[6,-4],
+          [2,-6],[3,-6],[4,-6],
+          [1,-2],[1,-3],[1,-4],
+        
+          // Third quadrant (mirror first quadrant across the X-axis)
+          [-2,1],[-3,1],[-4,1],
+          [-6,2],[-6,3],[-6,4],
+          [-2,6],[-3,6],[-4,6],
+          [-1,2],[-1,3],[-1,4],
+        
+          // Fourth quadrant (mirror first quadrant across both X and Y axes)
+          [2,1],[3,1],[4,1],
+          [6,2],[6,3],[6,4],
+          [2,6],[3,6],[4,6],
+          [1,2],[1,3],[1,4]
+        ];
+        
+        break;
+      case 'pentadecathlon':
+        pattern = [
+          [0, 0],[-1, 0],
+          [-2, -1],[-2, 1],
+          [-3, 0],[-4, 0],
+          [1,0],[2,0],
+          [3,1],[3,-1],
+          [4,0],[5,0]
+        ];
+        break;
+      case 'block':
+        pattern = [
+          [0, 0], [1, 0],
+          [0, 1], [1, 1]
+        ];
+        break;
+      case 'blinker':
+        pattern = [
+          [0, 0], [1, 0], [2, 0]
+        ];
+        break;
+      case 'toad':
+        pattern = [
+          [0, 0], [1, 0], [2, 0],
+          [-1, 1], [0, 1], [1, 1]
+        ];
+        break;
+      case 'beacon':
+        pattern = [
+          [0, 0], [1, 0],
+          [0, 1], [1, 1],
+          [2, 2], [3, 2],
+          [2, 3], [3, 3]
+        ];
+        break;
+      default:
+        console.log("Invalid optionFlag. No pattern chosen.");
+        return;
+  }
+
+  for (let [dx, dy] of pattern) {
+    grid[midX + dx][midY + dy] = 1;
+    nextGrid[midX + dx][midY + dy] = 1;
+    transitionGrid[midX + dx][midY + dy] = 1;
+    transitionState[midX + dx][midY + dy] = 'stable';
+  }
+
+  // Save initial state
+  initialGrid = copyGrid(grid);
+  initialNextGrid = copyGrid(nextGrid);
+  initialTransitionGrid = copyGrid(transitionGrid);
+  initialTransitionState = copyGrid(transitionState);
+}
+
 
 function initGrid() {  
   grid = make2DArray(gridCols, gridRows);
-  nextGrid = make2DArray(gridCols, gridRows);
-  transitionGrid = make2DArray(gridCols, gridRows);
-  transitionState = make2DArray(gridCols, gridRows);
-  
-  unchangedCells = new Set();  // Resetting the set of unchanged cells
-  
+  nextGrid = make2DArray(gridCols, gridRows);  
   let percentageAlive = map(gridRows * gridCols, 0, 1600, 0.0, aliveCellPercentage);
   
-  // Leave the borders as dead cells
-  for(let i = 1; i < gridCols - 1; i++) {
-    for(let j = 1; j < gridRows - 1; j++) {
+  for(let i = 0; i < gridCols; i++) {
+    for(let j = 0; j < gridRows; j++) {
       
       // Focused around the center
       let distToCenter = dist(i, j, gridCols / 2, gridRows / 2);
@@ -171,21 +282,11 @@ function initGrid() {
       // Set the cell value
       grid[i][j] = random(1) < adjustedProbability ? 1 : 0;
       nextGrid[i][j] = grid[i][j];
-      transitionGrid[i][j] = grid[i][j];
-      transitionState[i][j] = 'stable';
     }
   }
-
-  // Add a glider at the top left corner
-  grid[1][0] = 1;
-  grid[2][1] = 1;
-  grid[0][2] = grid[1][2] = grid[2][2] = 1;
-
   // Save initial state
   initialGrid = copyGrid(grid);
   initialNextGrid = copyGrid(nextGrid);
-  initialTransitionGrid = copyGrid(transitionGrid);
-  initialTransitionState = copyGrid(transitionState);
 }
 
 
@@ -198,13 +299,11 @@ function setGradient(x, y, w, h, c1, c2) {
   }
 }
 
-function drawFrame() {
+function drawFrame(frame_strokeweight) {
   push();
-  strokeWeight(5);
+  strokeWeight(frame_strokeweight);
   stroke(0);
   fill(255, 0, 0);  // Frame color
-
-  let bevelLength = 15; // Length of the bevel (tilted lines)
 
   let totalWidth = gridCols * cellSize;
   let totalHeight = gridRows * cellSize;
@@ -227,14 +326,80 @@ function drawFrame() {
     // Draw trapezoid
     beginShape();
     vertex(x1, y1);
-    vertex(x1 + bevelLength * cos(HALF_PI * i), y1 + bevelLength * sin(HALF_PI * i));
-    vertex(x2 - bevelLength * cos(HALF_PI * i), y2 - bevelLength * sin(HALF_PI * i));
     vertex(x2, y2);
-    vertex(x2 - frameWidth * cos(HALF_PI * i), y2 - frameWidth * sin(HALF_PI * i));
-    vertex(x1 + frameWidth * cos(HALF_PI * i), y1 + frameWidth * sin(HALF_PI * i));
     endShape(CLOSE);
   }
   pop();
+}
+
+function drawGradientBackGround(){
+  if (lerpAmount >= 1) {
+    minus = true;
+  } else if (lerpAmount <= 0) {
+    minus = false;
+  }
+  if (minus){
+    lerpAmount -= gradientSpeed;
+  } else {
+    lerpAmount += gradientSpeed;
+  }
+  let currentColor = lerpColor(gradientColor1, gradientColor2, lerpAmount);
+
+  push();
+  translate(-width / 2, -height / 2, 0);
+  setGradient(0, 0, width, height, gradientColor1, currentColor);
+  pop();
+}
+
+function drawGridLines(){
+  // Grid lines
+  push();
+  stroke(0);
+  strokeWeight(1);
+  for (let i = 0; i <= gridCols; i++) {
+    let x = i * cellSize - gridCols * cellSize / 2;
+    line(x, -gridRows * cellSize / 2, 2, x, gridRows * cellSize / 2, 0);
+    line(x, -gridRows * cellSize / 2, -2, x, gridRows * cellSize / 2, 0);
+
+  }
+  for (let j = 0; j <= gridRows; j++) {
+    let y = j * cellSize - gridRows * cellSize / 2;
+    line(-gridCols * cellSize / 2, y, 2, gridCols * cellSize / 2, y, 0);
+    line(-gridCols * cellSize / 2, y, -2, gridCols * cellSize / 2, y, 0);
+  }
+  pop();
+}
+
+function updateGrid() {
+  for (let i = 0; i < gridCols; i++) {
+    for (let j = 0; j < gridRows; j++) {
+      // Get number of alive neighbors
+      let neighbors = countNeighbors(grid, i, j);
+      let alive = grid[i][j] === 1;
+      nextGrid[i][j] = (alive && (neighbors === 2 || neighbors === 3 ) || (!alive && neighbors === 3)) ? 1 : 0;
+      // Add additional code here if you want to handle the 'unchangedCells' set and 'transitionState'
+    }
+  }
+  // Now that we've computed nextGrid, let's swap it with the current grid for the next frame
+  let temp = grid;
+  grid = nextGrid;
+  nextGrid = temp;
+}
+
+function drawGrid(){
+  for (let i = 0; i < gridCols; i++) {
+    for (let j = 0; j < gridRows; j++) {
+      let x = i * cellSize - gridCols * cellSize / 2 + cellSize / 2;
+      let y = j * cellSize - gridRows * cellSize / 2 + cellSize / 2;
+      push();
+      stroke(0);
+      strokeWeight(1);
+      fill(cellColor);
+      translate(x, y, 0);
+      box(cellSize * nextGrid[i][j]);
+      pop();
+    }
+  }
 }
 
 function setup(){
@@ -252,104 +417,21 @@ function setup(){
   gradientSpeed = $fx.getRawParam("bg_gradient_speed");
   frameDelay = $fx.getRawParam("frame_delay");
   aliveCellPercentage = $fx.getRawParam("alive_cell_percentage");
+  frame_strokeweight = $fx.getRawParam("frame_strokeweight");
+  //initGridDebugMode('pentadecathlon');
   initGrid();
   console.log('fxhash:', fxhash);
 }
 
-
 function draw(){
   background(bgColor);
   orbitControl();
-  drawFrame();
-  // Gradient background
-  // Handle gradient
-  if (lerpAmount >= 1) {
-    minus = true;
-  } else if (lerpAmount <= 0) {
-    minus = false;
+  drawFrame(frame_strokeweight);
+  drawGradientBackGround();
+  drawGridLines();
+  if (frameCount % (frameDelay + 1) === 0) {
+    updateGrid();
   }
-  if (minus){
-    lerpAmount -= gradientSpeed;
-  } else {
-    lerpAmount += gradientSpeed;
-  }
-  let currentColor = lerpColor(gradientColor1, gradientColor2, lerpAmount);
-
-  push();
-  translate(-width / 2, -height / 2, 0);
-  setGradient(0, 0, width, height, gradientColor1, currentColor);
-  pop();
-  
-  // Grid lines
-  push();
-  stroke(0);
-  strokeWeight(1);
-  for (let i = 0; i <= gridCols; i++) {
-    let x = i * cellSize - gridCols * cellSize / 2;
-    line(x, -gridRows * cellSize / 2, 2, x, gridRows * cellSize / 2, 0);
-    line(x, -gridRows * cellSize / 2, -2, x, gridRows * cellSize / 2, 0);
-
-  }
-  for (let j = 0; j <= gridRows; j++) {
-    let y = j * cellSize - gridRows * cellSize / 2;
-    line(-gridCols * cellSize / 2, y, 2, gridCols * cellSize / 2, y, 0);
-    line(-gridCols * cellSize / 2, y, -2, gridCols * cellSize / 2, y, 0);
-  }
-  pop();
-  
-  let newUnchangedCells = new Set();
-
-  for (let i = 0; i < gridCols; i++) {
-    for (let j = 0; j < gridRows; j++) {
-      if (unchangedCells.has(i + "," + j)) {
-        nextGrid[i][j] = grid[i][j];
-      } else {
-        let neighbors = countNeighbors(grid, i, j);
-        let alive = grid[i][j] === 1;
-        nextGrid[i][j] = (alive && (neighbors === 2 || neighbors === 3 )) || (!alive && neighbors === 3) ? 1 : 0;
-        
-        if (nextGrid[i][j] === grid[i][j]) {
-          newUnchangedCells.add(i + "," + j);
-        }
-      }
-
-      let x = i * cellSize - gridCols * cellSize / 2 + cellSize / 2;
-      let y = j * cellSize - gridRows * cellSize / 2 + cellSize / 2;
-
-      if (transitionState[i][j] === 'stable') {
-        if (nextGrid[i][j] !== grid[i][j]) {
-          transitionState[i][j] = nextGrid[i][j] ? 'growing' : 'shrinking';
-        }
-      } else if (transitionState[i][j] === 'growing') {
-        transitionGrid[i][j] = min(transitionGrid[i][j] + transitionSpeed, 1);
-        if (transitionGrid[i][j] === 1) {
-          transitionState[i][j] = 'stable';
-          nextGrid[i][j] = 1;  // We should set nextGrid, not grid.
-        }
-      } else if (transitionState[i][j] === 'shrinking') {
-        transitionGrid[i][j] = max(transitionGrid[i][j] - transitionSpeed, 0);
-        if (transitionGrid[i][j] === 0) {
-          transitionState[i][j] = 'stable';
-          nextGrid[i][j] = 0;  // We should set nextGrid, not grid.
-        }
-      }
-
-      push();
-      stroke(0);
-      strokeWeight(1);
-      fill(cellColor);
-      translate(x, y, 0);
-      box(cellSize * transitionGrid[i][j]);
-      pop();
-    }
-    if (frameCount === 1) fxpreview();
-  }
-  
-  // Swap grid and nextGrid at the end of the draw
-  let temp = grid;
-  grid = nextGrid;
-  nextGrid = temp;
-  
-  // Set the new unchanged cells
-  unchangedCells = newUnchangedCells;
+  drawGrid();
+  if (frameCount === 1) fxpreview();
 }
