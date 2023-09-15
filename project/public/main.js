@@ -107,6 +107,7 @@ let cellColor;
 let transitionSpeed; // 0.1 - 1
 let aliveCellPercentage;
 let initialGrid, initialNextGrid;
+let transitionState;
 let minus = false;
 let gradientSpeed;
 let frameWidth = 5;
@@ -160,116 +161,10 @@ function countNeighbors(grid, x, y) {
   return count;
 }
 
-function initGridDebugMode(patternFlag) {
-  grid = make2DArray(gridCols, gridRows);
-  nextGrid = make2DArray(gridCols, gridRows);
-  unchangedCells = new Set();  // Resetting the set of unchanged cells
-
-  const midX = Math.floor(gridCols / 2);
-  const midY = Math.floor(gridRows / 2);
-  let pattern = [];
-
-  switch (patternFlag) {
-    case 'glider':
-      pattern = [
-        [0, 0], [1, 0], [2, 0],
-        [0, 1], [1, 2]
-      ];
-      break;
-    case 'lwss':
-      pattern = [
-        [1, -1],  // First row
-        [-1, 0], [2, 0],  // Second row
-        [-2, 1],  // Third row
-        [-2, 2], [-1, 2], [0, 2], [1, 2]  // Fourth row
-      ];            
-      break;
-      case 'pulsar':
-        pattern = [
-          // First quadrant
-          [-2,-1],[-3,-1],[-4,-1],
-          [-6,-2],[-6,-3],[-6,-4],
-          [-2,-6],[-3,-6],[-4,-6],
-          [-1,-2],[-1,-3],[-1,-4],
-        
-          // Second quadrant (mirror first quadrant across the Y-axis)
-          [2,-1],[3,-1],[4,-1],
-          [6,-2],[6,-3],[6,-4],
-          [2,-6],[3,-6],[4,-6],
-          [1,-2],[1,-3],[1,-4],
-        
-          // Third quadrant (mirror first quadrant across the X-axis)
-          [-2,1],[-3,1],[-4,1],
-          [-6,2],[-6,3],[-6,4],
-          [-2,6],[-3,6],[-4,6],
-          [-1,2],[-1,3],[-1,4],
-        
-          // Fourth quadrant (mirror first quadrant across both X and Y axes)
-          [2,1],[3,1],[4,1],
-          [6,2],[6,3],[6,4],
-          [2,6],[3,6],[4,6],
-          [1,2],[1,3],[1,4]
-        ];
-        
-        break;
-      case 'pentadecathlon':
-        pattern = [
-          [0, 0],[-1, 0],
-          [-2, -1],[-2, 1],
-          [-3, 0],[-4, 0],
-          [1,0],[2,0],
-          [3,1],[3,-1],
-          [4,0],[5,0]
-        ];
-        break;
-      case 'block':
-        pattern = [
-          [0, 0], [1, 0],
-          [0, 1], [1, 1]
-        ];
-        break;
-      case 'blinker':
-        pattern = [
-          [0, 0], [1, 0], [2, 0]
-        ];
-        break;
-      case 'toad':
-        pattern = [
-          [0, 0], [1, 0], [2, 0],
-          [-1, 1], [0, 1], [1, 1]
-        ];
-        break;
-      case 'beacon':
-        pattern = [
-          [0, 0], [1, 0],
-          [0, 1], [1, 1],
-          [2, 2], [3, 2],
-          [2, 3], [3, 3]
-        ];
-        break;
-      default:
-        console.log("Invalid optionFlag. No pattern chosen.");
-        return;
-  }
-
-  for (let [dx, dy] of pattern) {
-    grid[midX + dx][midY + dy] = 1;
-    nextGrid[midX + dx][midY + dy] = 1;
-    transitionGrid[midX + dx][midY + dy] = 1;
-    transitionState[midX + dx][midY + dy] = 'stable';
-  }
-
-  // Save initial state
-  initialGrid = copyGrid(grid);
-  initialNextGrid = copyGrid(nextGrid);
-  initialTransitionGrid = copyGrid(transitionGrid);
-  initialTransitionState = copyGrid(transitionState);
-}
-
-
 function initGrid() {  
   grid = make2DArray(gridCols, gridRows);
-  nextGrid = make2DArray(gridCols, gridRows);  
+  nextGrid = make2DArray(gridCols, gridRows); 
+  transitionState = make2DArray(gridCols, gridRows); 
   let percentageAlive = map(gridRows * gridCols, 0, 1600, 0.0, aliveCellPercentage);
   
   for(let i = 0; i < gridCols; i++) {
@@ -299,7 +194,7 @@ function setGradient(x, y, w, h, c1, c2) {
   }
 }
 
-function drawFrame(frame_strokeweight) {
+function drawTable(frame_strokeweight) {
   push();
   strokeWeight(frame_strokeweight);
   stroke(0);
@@ -329,26 +224,27 @@ function drawFrame(frame_strokeweight) {
     vertex(x2, y2);
     endShape(CLOSE);
   }
+  noStroke();
+  fill(getGradientColor());
+  plane( -gridCols * cellSize, -gridRows * cellSize);
   pop();
 }
 
-function drawGradientBackGround(){
+function getGradientColor(){
   if (lerpAmount >= 1) {
     minus = true;
   } else if (lerpAmount <= 0) {
     minus = false;
   }
-  if (minus){
+  
+  if (minus) {
     lerpAmount -= gradientSpeed;
   } else {
     lerpAmount += gradientSpeed;
   }
+  
   let currentColor = lerpColor(gradientColor1, gradientColor2, lerpAmount);
-
-  push();
-  translate(-width / 2, -height / 2, 0);
-  setGradient(0, 0, width, height, gradientColor1, currentColor);
-  pop();
+  return currentColor;
 }
 
 function drawGridLines(){
@@ -406,7 +302,7 @@ function setup(){
   randomSeed(globalSeed);
   noiseSeed(globalSeed);
   (isMob) ? pixelDensity(1): pixelDensity(min(window.devicePixelRatio), 2);
-  createCanvas(gridCols * cellSize, gridRows * cellSize, WEBGL);
+  createCanvas(windowWidth, windowHeight, WEBGL);
   perspective(PI / 3.0, width / height, 0.1, 10000);
   frameRate(60);
   gradientColor1 = color($fx.getParam("table_color_1").arr.rgb);
@@ -426,8 +322,7 @@ function setup(){
 function draw(){
   background(bgColor);
   orbitControl();
-  drawFrame(frame_strokeweight);
-  drawGradientBackGround();
+  drawTable(frame_strokeweight);
   drawGridLines();
   if (frameCount % (frameDelay + 1) === 0) {
     updateGrid();
