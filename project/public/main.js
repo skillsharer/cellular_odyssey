@@ -274,6 +274,11 @@ function updateGrid() {
       let alive = grid[i][j] === 1;
       nextGrid[i][j] = (alive && (neighbors === 2 || neighbors === 3 ) || (!alive && neighbors === 3)) ? 1 : 0;
       // Add additional code here if you want to handle the 'unchangedCells' set and 'transitionState'
+      if (nextGrid[i][j] === 1 && grid[i][j] === 0) {
+        transitionState[i][j] = 0;
+      } else if (nextGrid[i][j] === 0 && grid[i][j] === 1) {
+        transitionState[i][j] = 1;
+      }
     }
   }
   // Now that we've computed nextGrid, let's swap it with the current grid for the next frame
@@ -287,13 +292,20 @@ function drawGrid(){
     for (let j = 0; j < gridRows; j++) {
       let x = i * cellSize - gridCols * cellSize / 2 + cellSize / 2;
       let y = j * cellSize - gridRows * cellSize / 2 + cellSize / 2;
-      push();
-      stroke(0);
-      strokeWeight(1);
-      fill(cellColor);
-      translate(x, y, 0);
-      box(cellSize * nextGrid[i][j]);
-      pop();
+      if (grid[i][j] === 1 || transitionState[i][j] > 0) {
+        push();
+        stroke(0);
+        strokeWeight(1);
+        fill(cellColor);
+        translate(x, y, 0);
+        box(cellSize * transitionState[i][j]);
+        pop();
+      }
+      if (transitionState[i][j] > 0 && grid[i][j] === 0) {
+        transitionState[i][j] = max(0, transitionState[i][j] - transitionSpeed);
+      } else if (transitionState[i][j] < 1 && grid[i][j] === 1) {
+        transitionState[i][j] = min(1, transitionState[i][j] + transitionSpeed);
+      }
     }
   }
 }
