@@ -32,6 +32,18 @@ $fx.params([
     type: "color",
   },
   {
+    id: "cell_rainbow",
+    name: "Rainbow Cell Color",
+    type: "boolean",
+    default: false,
+  },
+  {
+    id: "show_grid",
+    name: "Show Grid",
+    type: "boolean",
+    default: true,
+  },
+  {
     id: "transition_speed",
     name: "Cell Transition Speed",
     type: "number",
@@ -108,6 +120,8 @@ let gradientSpeed;
 let frameWidth;
 let frameDelay;
 let frame_strokeweight;
+let cellRainbow;
+let showGrid;
 
 function copyGrid(source) {
   let copy = make2DArray(gridCols, gridRows);
@@ -172,16 +186,6 @@ function initGrid() {
   }
   initialGrid = copyGrid(grid);
   initialNextGrid = copyGrid(nextGrid);
-}
-
-
-function setGradient(x, y, w, h, c1, c2) {
-  for (let i = y; i <= y + h; i++) {
-    let inter = map(i, y, y + h, 0, 1);
-    let c = lerpColor(c1, c2, inter);
-    stroke(c);
-    line(x, i, x + w, i);
-  }
 }
 
 function drawTable(frame_strokeweight) {
@@ -268,16 +272,51 @@ function updateGrid() {
   nextGrid = temp;
 }
 
+function colorGrad(color1, color2, t) {
+  const [r1, g1, b1] = color1;
+  const [r2, g2, b2] = color2;
+
+  const r = lerp(r1, r2, t);
+  const g = lerp(g1, g2, t);
+  const b = lerp(b1, b2, t);
+
+  return [Math.floor(r), Math.floor(g), Math.floor(b)];
+}
+
+function makeItRainbow(i,j){
+  const topLeft = [255, 0, 0];
+  const topRight = [0, 255, 0];
+  const bottomLeft = [0, 0, 255];
+  const bottomRight = [255, 255, 0];
+  // Compute interpolation factors for both dimensions
+  const t1 = i / (gridCols - 1);
+  const t2 = j / (gridRows - 1);
+
+  // Interpolate colors along the top and bottom row
+  const topColor = colorGrad(topLeft, topRight, t1);
+  const bottomColor = colorGrad(bottomLeft, bottomRight, t1);
+
+  // Interpolate colors vertically to find the final color for the current box
+  let newColor = colorGrad(topColor, bottomColor, t2);
+  return newColor;
+}
+
 function drawGrid(){
   for (let i = 0; i < gridCols; i++) {
     for (let j = 0; j < gridRows; j++) {
       let x = i * cellSize - gridCols * cellSize / 2 + cellSize / 2;
       let y = j * cellSize - gridRows * cellSize / 2 + cellSize / 2;
+
       if (grid[i][j] === 1 || transitionState[i][j] > 0) {
         push();
         stroke(0);
         strokeWeight(1);
-        fill(cellColor);
+        if(cellRainbow){
+          cellColor = makeItRainbow(i,j);
+          fill(...cellColor);
+        }else{
+          fill(cellColor);
+        }
         translate(x, y, 0);
         box(cellSize * transitionState[i][j]);
         pop();
@@ -311,6 +350,8 @@ function setup(){
   gradientColor2 = color($fx.getParam("table_color_2").arr.rgb);
   bgColor = color($fx.getParam("bg_color").arr.rgb);
   cellColor = color($fx.getParam("cell_color").arr.rgba);
+  cellRainbow = $fx.getRawParam("cell_rainbow");
+  showGrid = $fx.getRawParam("show_grid");
   transitionSpeed = $fx.getRawParam("transition_speed");
   gradientSpeed = $fx.getRawParam("bg_gradient_speed");
   frameDelay = $fx.getRawParam("frame_delay");
@@ -324,7 +365,9 @@ function draw(){
   background(bgColor);
   orbitControl();
   drawTable(frame_strokeweight);
-  drawGridLines();
+  if(showGrid){
+    drawGridLines();
+  }
   if (frameCount % (frameDelay + 1) === 0) {
     updateGrid();
   }
