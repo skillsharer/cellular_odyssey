@@ -1,10 +1,8 @@
 const sp = new URLSearchParams(window.location.search);
-let globalSeed; // Declare the seed as a global variable
+let globalSeed;
 const isMob = /Android|webOS|iPhone|iPad|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 function preload() {
-    // seed random and perlin noise functions with fxrand() - needed to make your script deterministic
-    // you can now use random() and noise() in the script 
     globalSeed = Math.round(fxrand() * 2e9);
     console.log(globalSeed);
 }
@@ -288,15 +286,10 @@ function makeItRainbow(i,j){
   const topRight = [0, 255, 0];
   const bottomLeft = [0, 0, 255];
   const bottomRight = [255, 255, 0];
-  // Compute interpolation factors for both dimensions
   const t1 = i / (gridCols - 1);
   const t2 = j / (gridRows - 1);
-
-  // Interpolate colors along the top and bottom row
   const topColor = colorGrad(topLeft, topRight, t1);
   const bottomColor = colorGrad(bottomLeft, bottomRight, t1);
-
-  // Interpolate colors vertically to find the final color for the current box
   let newColor = colorGrad(topColor, bottomColor, t2);
   return newColor;
 }
