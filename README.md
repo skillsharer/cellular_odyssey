@@ -14,3 +14,5 @@ The Game of Life isn't just a visual spectacle—it's a metaphorical lens into o
 ## In Loving Memory:
 
 Cellular Odyssey is dedicated to the memory of my father, who, after a long and arduous journey with illness, left us to venture into the ultimate unknown. This collection serves as a tribute to his resilience and the indomitable spirit he imprinted on me. Just as in the Game of Life, his influence remains in the complex web of our family, his essence forever a part of this grand, evolving tapestry.
+
+This project was released on [fxhash](https://www.fxhash.xyz/generative/slug/cellular-odyssey) September 17, 2023.
